@@ -521,14 +521,14 @@ struct tree{
 
       while(!in.eof()){
         getline(in, buf);
-        if (regex_search(buf, h, regex("1,2,[0-9a-z]*"))){
+       /* if (regex_search(buf, h, regex("1,2,[0-9a-z]*"))){
           string shash = h[0];
           shash = shash.substr(4,shash.length());
           first_file = shash;
           
         }
-
-        else if(regex_search(buf, h, regex(",2,[0-9a-z]*"))){
+*/
+        if(regex_search(buf, h, regex(",2,[0-9a-z]*"))){
             string shash = h[0];
             shash = shash.substr(3,shash.length());
             hashes.push_back(shash);
@@ -540,9 +540,9 @@ struct tree{
 
       }
 
-      string next = keccak(keccak(ID) + first_file);
+      string next = keccak(keccak(ID) + hashes[0]);
 
-      for(int i = 0; i < hashes.size(); i++){
+      for(int i = 1; i < hashes.size(); i++){
         string temp = hashes[i];
         next = keccak(next + temp);
       }
@@ -571,11 +571,6 @@ struct tree{
         print_tree(root->right, out);
       }
       
-        
-        
-      
-
-
     }
 };
 
