@@ -324,11 +324,22 @@ struct file_reader{
     vector<file *> files;
     string directory;
 
-    file_reader(string dir){
+    file_reader(string dir, string s){
         directory = dir;
+        add_Id(s);
+        read_directory();
+        sort_files();
+
     }
 
-    void read_files(){
+    void add_Id(string s){
+    this->files.push_back(new file());
+    this->files.back()->path = s;
+    this->files.back()->name = s;
+}
+   
+
+    void read_directory(){
 
         std::string directory_path;
         double file_size;
@@ -356,43 +367,50 @@ struct file_reader{
             }
         }
 
-        }
+      }
+
     void sort_files(){
        q_sort(1, this->files.size()-1);
+    }
+
+    string read(file * f){
+
+      char c;
+      vector<char> file;
+      
+            
+      std::ifstream in_file(f->path, std::ifstream::binary);
+      file.clear();
+      while(!in_file.eof())
+      {
+        in_file >> c;
+        file.push_back(c);
+      }
+      
+      std::string string_rep(file.begin(), file.end()-1);
+      return string_rep;
+
     }
 
     vector<node*> hash_files(){
 
         string hash;
-        vector<file*> f = this->files;
+        
         vector<node *> leaves;
         Keccak keccak;
-        vector<char> file;
-    
-        char c;
+        
 
-        for(int i = 0; i < f.size(); i++){
+        for(int i = 0; i < this->files.size(); i++){
+
+          string file = read(this->files[i]);
             
-            std::ifstream in_file(f[i]->path, std::ifstream::binary);
-            file.clear();
-            while(!in_file.eof())
-            {
-                in_file >> c;
-                file.push_back(c);
-            }
-    
-    
-        std::string bin_file_rep(file.begin(), file.end()-1);
-            
-        hash = keccak(bin_file_rep);
+          hash = keccak(file);
 
-        leaves.push_back(new node(hash));
-        leaves.back()->column = i + 1;
-        leaves.back()->row = 1;
+          leaves.push_back(new node(hash));
+          leaves.back()->column = leaves.size();
+          leaves.back()->row = 1;
 
-        in_file.close();
-
-        }  
+        }
 
         return leaves;      
 
@@ -468,10 +486,12 @@ struct tree{
       int displacement = 0;
       int size = 0;
       string temp, parent_hash;
+
+      //builds the tree
       while(this->children.size() != 1){
         row++;
         size = this->children.size();
-        displacement = this->children.size()%2;
+        displacement = this->children.size()%2;//if there is one left over hash it with itself
         temp.clear();
         parents.clear();
 
@@ -496,8 +516,8 @@ struct tree{
             parents.push_back(new node(parent_hash));
             parents.back()->column = parents.size();
             parents.back()->row = row;
-            parents.back()->left = this->children[size-displacement];
-            parents.back()->right = this->children[size-displacement];
+            parents.back()->left =this->children[size-displacement];
+            parents.back()->right =this->children[size-displacement];
           }
 
          
@@ -505,7 +525,7 @@ struct tree{
 
         }
         root = this->children[0];
-
+        
       }
     
     void verify_root(string ID, string hash){
@@ -521,22 +541,13 @@ struct tree{
 
       while(!in.eof()){
         getline(in, buf);
-       /* if (regex_search(buf, h, regex("1,2,[0-9a-z]*"))){
-          string shash = h[0];
-          shash = shash.substr(4,shash.length());
-          first_file = shash;
-          
-        }
-*/
+
         if(regex_search(buf, h, regex(",2,[0-9a-z]*"))){
             string shash = h[0];
-            shash = shash.substr(3,shash.length());
+            shash = shash.substr(shash.length()-128, shash.length());
             hashes.push_back(shash);
 
           }
-
-        
-        
 
       }
 
@@ -555,15 +566,126 @@ struct tree{
         cout << "No Match" << endl;
       }
     }
+
+
+    string read(file * f){
+
+      char c;
+      vector<char> file;
+      
+            
+      std::ifstream in_file(f->path, std::ifstream::binary);
+      file.clear();
+      while(!in_file.eof())
+      {
+        in_file >> c;
+        file.push_back(c);
+      }
+      
+      std::string string_rep(file.begin(), file.end()-1);
+      return string_rep;
+
+    }
+    bool file_changes(file * older, file * newer){
+
+      string version_old = read(older);
+      string version_new = read(newer);
+
+      if(version_old == version_new){
+        return false;
+      }
+      else{
+        return true;
+      }
+
+
+
+    }
+
+    //num is the row of hashes from old file to read in.
+    vector <string> read_in_hashes(string num){
+
+      vector<string> hashes;
+      string buf;
+      ifstream in("result.csv");
+      string index = num + ",[0-9]*,[0-9a-z]*";
+      regex reg(index);
+      smatch h;
+      while(!in.eof()){
+
+        getline(in, buf);
+
+        if(regex_search(buf, h, reg)){
+            string shash = h[0];
+            shash = shash.substr(shash.length() -128, shash.length());
+            hashes.push_back(shash);
+
+          }
+     
+
+      }
+       return hashes;
+    }
     void update_tree(){
+
+      bool last_file = false;
+      int row = 1, column = 1;
+      file_reader old_files("/home/theo/Bitcoin/bitcoin-version-compare/bitcoin-0.10.0","Id_file_verifier");
+      file_reader new_files("/home/theo/Bitcoin/bitcoin-version-compare/bitcoin-0.10.1","Id_file_verifier");
+      int old_file_size = old_files.files.size();
+      int new_file_size = new_files.files.size();
+
+      vector <string> this_row = read_in_hashes(to_string(row));
+      vector <string> next_row = read_in_hashes(to_string(row+1));
+      vector <node*> children;
+      vector <node*> parents;
+      
+      int count = 0;
+
+
+        for(int i = 0; i < old_file_size; i++){
+
+          if(file_changes(old_files.files[i], new_files.files[i])){
+
+            //if the index is odd grab the right node
+            if(i%2 == 1){
+
+            }
+            //the index is even grab the left node
+            else{
+
+            }
+            count++;
+
+            
+            
+          }
+
+          //if the files are the same get the hash
+          else{
+            
+            
+            //fetch the hash in the file to replace in new tree
+          }
+        }
+
+      
+
+      cout << count << endl;
+
+      for(int i = 0; i < children.size(); i++){
+        cout << children[i]->hash << endl;
+      }
+
 
     }
     void print_tree(node * root, ofstream &out){
       
      
-      if(root->left == NULL || root->right == NULL){
+      if(root->left == NULL && root->right == NULL){
        
         out << root->row << "," << root->column << ","<< root->hash << endl;
+        //delete root;
       }
       else{
         out << root->row << "," << root->column << ","<< root->hash << endl;
@@ -574,24 +696,24 @@ struct tree{
     }
 };
 
-void add_Id(std::vector<file*> &f, string s){
-    f.push_back(new file());
-    f.back()->path = s;
-    f.back()->name = s;
-}
-   
+
 int main(int argc, char* argv[])
 {
-    file_reader  f = file_reader(argv[1]);
-    add_Id(f.files, argv[2]);
-    f.read_files();
-    f.sort_files();
+
     ofstream out("result.csv");
+    file_reader  f = file_reader(argv[1],argv[2]);
     vector<node*> leaves = f.hash_files();
+
+    cout << leaves.size() << endl;
+
     tree version(leaves);
     version.build_tree();
     version.print_tree(version.root, out);
-    version.verify_root("d161f2301a6bcba459ca903c70e767895ccd4715ba228824410e2145293667a9","f157161c5dddcf4759e88eb020e4e91da1634a8e5ec936aa690f73cd65c715ad");
+    //verify_root(ID, root)
+    version.verify_root("d161f2301a6bcba459ca903c70e767895ccd4715ba228824410e2145293667a9",
+                        "e823dab0ba41d9d31940e1ff829d9bd1b4b8c73aa2f13768f7ab13c38acb04a504ae9a5277954be1ba0b4cc29adefcc1bb5312a2e095092bd9fec4193ea3f60c");
+
+    version.update_tree();
     out.close();
 
     }
