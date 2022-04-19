@@ -631,8 +631,9 @@ struct tree{
 
       Keccak keccak;
       int row = 1, column = 1;
-      file_reader old_files("/home/theo/Bitcoin/bitcoin-version-compare/bitcoin-0.10.0","Id_file_verifier");
-      file_reader new_files("/home/theo/Bitcoin/bitcoin-version-compare/bitcoin-0.10.1","Id_file_verifier");
+      //put the directory of the current version and new version.
+      file_reader old_files("/home/theo/bitcoin-version-compare/bitcoin-0.10.0","Id_file_verifier");
+      file_reader new_files("/home/theo/bitcoin-version-compare/bitcoin-0.10.1","Id_file_verifier");
       int old_file_size = old_files.files.size();
       int new_file_size = new_files.files.size();
 
@@ -664,30 +665,56 @@ struct tree{
 
         }
 
-        int size =  new_files.files.size() - children.size() ;
+        //fill the last nodes in the row to get full representation of files in the directory.
+        int size =  new_files.files.size() - children.size();
         for(int i = new_files.files.size() - size; i < new_files.files.size(); i++){
           children.push_back(new node(keccak(new_files.read(new_files.files[i]))));
           children.back()->column = children.size();
           children.back()->row = row;
         }
 
-        row++;
-        size =  new_files.files.size() - children.size();
-
-        for(int i = 0; i < children.size(); i+=2){
-          
-        }
-
-      
+      row++;
+      size =  new_files.files.size() - children.size();
 
       cout << count << " " << size << endl;
-      /*
-      for(int i = 0; i < children.size(); i++){
-        cout << children[i]->hash << endl;
-      }
-      */
 
+      while(children.size() != 1){
+
+        int displacement = this->children.size()%2;
+
+        this_row = read_in_hashes(to_string(row));
+
+        for(int i = 0; i < children.size(); i+=2){
+
+          if(children[i]->changes || children[i+1]->changes){
+              
+            parents.push_back(new node(keccak(children[i]->hash + children[i+1]->hash)));
+            parents.back()->column = parents.size();
+            parents.back()->row = row;
+            parents.back()->left = this->children[i];
+            parents.back()->right = this->children[i+1];
+         
+              //fetch left
+            }
+          
+          // hash at row in read in file becomes new hash.
+          else{
+            string temp = this_row[i];
+            parents.push_back(new node(temp));
+            parents.back()->left = children[i];
+            parents.back()->right = children[i+1];
+            parents.back()->column = parents.size();
+            parents.back()->row = row;
+
+          }
+
+        }//for
+        row++;
+      }//while
+      
     }
+
+
     void print_tree(node * root, ofstream &out){
       
      
@@ -720,7 +747,7 @@ int main(int argc, char* argv[])
     version.print_tree(version.root, out);
     //verify_root(ID, root)
     version.verify_root("d161f2301a6bcba459ca903c70e767895ccd4715ba228824410e2145293667a9",
-                        "e823dab0ba41d9d31940e1ff829d9bd1b4b8c73aa2f13768f7ab13c38acb04a504ae9a5277954be1ba0b4cc29adefcc1bb5312a2e095092bd9fec4193ea3f60c");
+                        "ab8c58386168a89bc14330347b3bdc1057ff2868ddc97b664b7df95287069e645efad2af6697236f6f3981ec360f02f03a45c46a658a75efbba7d69fd8b2bf0a");
 
     version.update_tree();
     out.close();
