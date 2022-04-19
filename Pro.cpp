@@ -303,6 +303,7 @@ std::string Keccak::operator()(const std::string& text)
 
 
 struct node {
+    bool changes = false;
     string hash;
     int row;
     int column;
@@ -628,7 +629,7 @@ struct tree{
     }
     void update_tree(){
 
-      bool last_file = false;
+      Keccak keccak;
       int row = 1, column = 1;
       file_reader old_files("/home/theo/Bitcoin/bitcoin-version-compare/bitcoin-0.10.0","Id_file_verifier");
       file_reader new_files("/home/theo/Bitcoin/bitcoin-version-compare/bitcoin-0.10.1","Id_file_verifier");
@@ -645,38 +646,46 @@ struct tree{
 
         for(int i = 0; i < old_file_size; i++){
 
+
           if(file_changes(old_files.files[i], new_files.files[i])){
 
-            //if the index is odd grab the right node
-            if(i%2 == 1){
-
-            }
-            //the index is even grab the left node
-            else{
-
-            }
+            children.push_back(new node(keccak(new_files.read(new_files.files[i]))));
+            children.back()->column = children.size();
+            children.back()->row = row;
+            children.back()->changes = true;
             count++;
-
-            
-            
-          }
-
-          //if the files are the same get the hash
+            }
           else{
             
-            
-            //fetch the hash in the file to replace in new tree
+            children.push_back(new node(this_row[i]));
+            children.back()->column = children.size();
+            children.back()->row = row;
           }
+
+        }
+
+        int size =  new_files.files.size() - children.size() ;
+        for(int i = new_files.files.size() - size; i < new_files.files.size(); i++){
+          children.push_back(new node(keccak(new_files.read(new_files.files[i]))));
+          children.back()->column = children.size();
+          children.back()->row = row;
+        }
+
+        row++;
+        size =  new_files.files.size() - children.size();
+
+        for(int i = 0; i < children.size(); i+=2){
+          
         }
 
       
 
-      cout << count << endl;
-
+      cout << count << " " << size << endl;
+      /*
       for(int i = 0; i < children.size(); i++){
         cout << children[i]->hash << endl;
       }
-
+      */
 
     }
     void print_tree(node * root, ofstream &out){
